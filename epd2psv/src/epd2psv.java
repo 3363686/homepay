@@ -5,8 +5,6 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.Scanner;
 
 /**
@@ -14,11 +12,9 @@ import java.util.Scanner;
  */
 public class epd2psv{
     private static final String EPD_EXT = ".psv";
-    private static final String EPD_KEY_FN = "psvkeys.txt";
+    private static final String EPD_KEY_FN = "psvKeys.txt";
     private static final int EPD_KEY_N = 30;
     private static final int EPD_VAL_LEN = 40;
-    private static final String EPD_VAL_ABSENT = "----";
-    private static final String EPD_VAL_EXTRA = "???";
 public static void main( String[] args ){
     ArrayList<String> epdKey = new ArrayList<>(EPD_KEY_N);
     ArrayList<Character> epdKeyT = new ArrayList<>(EPD_KEY_N);
@@ -88,10 +84,9 @@ public static void main( String[] args ){
     }
   }
 // Do split by "|"
-  String[] records = fileData.substring(startPos).split("\\|");
   psvLine = new StringBuilder(EPD_VAL_LEN * epdKeyN);
   // Write all records & fields according to config settings
-  String[] fields;
+  String[] fields = new String[0];
   for( i = 0; i < epdKeyN; i++ ){
     tchr = epdKeyT.get(i);
     if( tchr == '-' ) continue;           // Skip as cfg
@@ -103,7 +98,7 @@ public static void main( String[] args ){
       fl = fields.length;
     }
     switch( tchr ){
-      case '=':
+      case '=':                                 // Only last 1
         if( fl   <= 1 ){
           if( fl <= 0 ) psvLine.append("-");
           else          psvLine.append("<");
@@ -112,7 +107,7 @@ public static void main( String[] args ){
           psvLine.append(" |").append(fields[fl-1]).append("|");
         }
         break;
-      case '2':
+      case '2':                                 // Date
         if( fl   <= 5 ){
           if( fl <= 0 ) psvLine.append("-");
           else          psvLine.append("<");
@@ -120,10 +115,10 @@ public static void main( String[] args ){
         }else{
           if( fl >  6 ) psvLine.append(">");
           else          psvLine.append(" ");
-          psvLine.append("|").append(fields[fl-1]).append(".").append(fields[fl-3]).append("|");
+          psvLine.append("|").append(fields[fl-2]).append(".").append(fields[fl-4]).append("|");
         }
         break;
-      case '+':
+      case '+':                                 // Totals
         switch( fl ){
           case 0:
             psvLine.append("-| | | | |");
@@ -138,10 +133,10 @@ public static void main( String[] args ){
             psvLine.append(" |").append(fields[1]).append("| | |").append(fields[2]).append("|");
             break;
           case 4:
-            psvLine.append(" |").append(fields[1]).append("| |").append(fields[2]).append("|").append(fields[3]).append("|");
+            psvLine.append("1|").append(fields[1]).append("| |").append(fields[2]).append("|").append(fields[3]).append("|");
             break;
           case 5:
-            psvLine.append(" |").append(fields[1]).append("|").append(fields[2]).append("|").append(fields[3]).append("|").append(fields[4]).append("|");
+            psvLine.append("2|").append(fields[1]).append("|").append(fields[2]).append("|").append(fields[3]).append("|").append(fields[4]).append("|");
             break;
           case 6:
           default:
@@ -149,9 +144,9 @@ public static void main( String[] args ){
             break;
         }
         break;
-      case '0':
-      case '1':
-      case '3':
+      case '0':                                 // Std
+      case '1':                                 // Except 1st
+      case '3':                                 // Water
       default:
         switch( fl ){
           case 0:
@@ -161,35 +156,40 @@ public static void main( String[] args ){
             psvLine.append("<| | | | | | | |");
             break;
           case 2:
-            psvLine.append("<| | | | | | |").append(fields[1] + "|");
+            psvLine.append("<| | | | | | |").append(fields[1]).append("|");
             break;
           case 3:
-            psvLine.append("<| | | |").append(fields[1] + "| | |" + fields[2] + "|");
+            psvLine.append("<| | | |").append(fields[1]).append("| | |").append(fields[2]).append("|");
             break;
           case 4:
-            psvLine.append("<| | | |").append(fields[1] + "| |" + fields[2] + "|" + fields[3] + "|");
+            psvLine.append("<| | | |").append(fields[1]).append("| |").append(fields[2]).append("|").append(fields[3]).append("|");
             break;
           case 5:
-            psvLine.append("<| | | |").append(fields[1] + "|" + fields[2] + "|" + fields[3] + "|" + fields[4] + "|");
+            psvLine.append("<| | | |").append(fields[1]).append("|").append(fields[2]).append("|").append(fields[3]).append("|").append(fields[4]).append("|");
             break;
           case 6:
-            psvLine.append(" |").append(fields[1] + "|" + fields[2] + "|" + fields[3] + "|" + fields[4] + "| | |" + fields[5] + "|");
+            psvLine.append(" |").append(fields[1]).append("|").append(fields[2]).append("|").append(fields[3]).append("|").append(fields[4]).append("| | |").append(fields[5]).append("|");
             break;
           case 7:
-            psvLine.append(" |").append(fields[1] + "|" + fields[2] + "|" + fields[3] + "|" + fields[4] + "| |" + fields[5] + "|" + fields[6] + "|");
+            psvLine.append("1|").append(fields[1]).append("|").append(fields[2]).append("|").append(fields[3]).append("|").append(fields[4]).append("| |").append(fields[5]).append("|").append(fields[6]).append("|");
             break;
           case 8:
-            psvLine.append(" |").append(fields[1] + "|" + fields[2] + "|" + fields[3] + "|" + fields[4] + "|" + fields[5] + "|" + fields[6] + "|" + fields[7] + "|");
+            psvLine.append("2|").append(fields[1]).append("|").append(fields[2]).append("|").append(fields[3]).append("|").append(fields[4]).append("|").append(fields[5]).append("|").append(fields[6]).append("|").append(fields[7]).append("|");
             break;
           case 9:
           default:
-            psvLine.append(">|").append(fields[fl-7] + "|" + fields[fl-6] + "|" + fields[fl-5] + "|" + fields[fl-4] + "|" + fields[fl-3] + "|" + fields[fl-2] + "|" + fields[fl-1] + "|");
+            psvLine.append(">|").append(fields[fl - 7]).append("|").append(fields[fl - 6]).append("|").append(fields[fl - 5]).append("|").append(fields[fl - 4]).append("|").append(fields[fl - 3]).append("|").append(fields[fl - 2]).append("|").append(fields[fl - 1]).append("|");
             break;
         }
-        psvLine.append(tstr);
     }
+    psvLine.append("\n");   // TMP
   }
-  writer.close();
+  try{
+    writer.write(String.valueOf(psvLine));
+    writer.close();
+  }catch( IOException e ){
+    System.out.println("Cannot write output file `" + filename + "`");
+  }
   System.out.println(epdKeyMagicFrom);
   System.out.println(epdKeyMagicIns);
   for( i = 0; i < epdKeyN; i++ ){
