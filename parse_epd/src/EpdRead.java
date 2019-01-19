@@ -36,9 +36,7 @@ public static void main( String[] args ){
     Scanner scanner = new Scanner(new File(filename));
     while( scanner.hasNextLine() ){
       tstr = scanner.nextLine();
-      if( tstr.isEmpty() ){
-        continue;
-      }
+      if( tstr.isEmpty() ) continue;    // Skip empty lines
       tchr = tstr.charAt(0);
       switch( tchr ){
         case '#':
@@ -99,12 +97,12 @@ public static void main( String[] args ){
   }
 // Do split by "|"
   String[] records = fileData.substring(startPos).split("\\|");
+  int maxKeyL = Collections.max(epdKey, Comparator.comparing(String::length)).length();
   try{
 // Write all records in original order
     for( i = 0; i < records.length; i++ ){
       writer.write(i + "." + records[i] + "\r\n");
     }
-    int maxKeyL = Collections.max(epdKey, Comparator.comparing(String::length)).length();
     writer.write("\r\n" );
     // Arrays.sort(records, Comparator.comparingInt(epdKey::indexOf));
 // Write all records in config order
@@ -125,20 +123,20 @@ public static void main( String[] args ){
       if( pos <= 0 ) continue;              // Skip if no data (???)
       epdKeyData[i] = fileData.substring(pos-1, fileData.indexOf("|", pos));
       writer.write(String.format("%n%2d. %-"+maxKeyL+"s|", i, epdKey.get(i)));
-      if( tchr == '0' ) continue; // Skip as cfg
-      if( tchr == '1' ){
+      if( tchr == '0' ) continue; // Skip as cfg: No fields
+      if( tchr == '1' ){                      //  As is, 1 field
         writer.write(epdKeyData[i].substring(2)+"|");
         continue;
       }
       fields = epdKeyData[i].split(" ");
       int fl = fields.length;
       switch( tchr ){
-        case '=':
+        case '=':                             //  As is, all in fields
           for( j = 1; j < fl; j++ ){
             writer.write(fields[j] + "|");
           }
           break;
-        case '+':
+        case '+':                             //  Totals
           switch( fl ){
             case 1:
               tstr = " |" + " |" + EPD_VAL_ABSENT + "|" + " |" + " |" + EPD_VAL_ABSENT + "|";
@@ -162,7 +160,7 @@ public static void main( String[] args ){
           }
           writer.write(" |" + tstr);
           break;
-        case ' ':
+        case ' ':                             //   Std
         default:
           switch( fl ){
             case 1:

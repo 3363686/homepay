@@ -13,13 +13,13 @@ import java.util.Scanner;
  * Created by _ame_ on 2019-01-13 19:20:12.
  */
 public class epd2psv{
-    private static final String EPD_EXT = ".epd";
-    private static final String EPD_KEY_FN = "epdkeys.txt";
+    private static final String EPD_EXT = ".psv";
+    private static final String EPD_KEY_FN = "psvkeys.txt";
     private static final int EPD_KEY_N = 30;
+    private static final int EPD_VAL_LEN = 40;
     private static final String EPD_VAL_ABSENT = "----";
     private static final String EPD_VAL_EXTRA = "???";
 public static void main( String[] args ){
-    //String[] epdKey = new String[EPD_KEY_N];
     ArrayList<String> epdKey = new ArrayList<>(EPD_KEY_N);
     ArrayList<Character> epdKeyT = new ArrayList<>(EPD_KEY_N);
     int[] epdKeyDataPos;
@@ -27,7 +27,7 @@ public static void main( String[] args ){
     String epdKeyMagicFrom = "";
     String epdKeyMagicIns = "";
     String fileContent;
-    StringBuilder fileData;
+    StringBuilder fileData, psvLine;
     String filename = null;
     BufferedWriter writer;
     int i,j,k, startPos, epdKeyN;
@@ -40,9 +40,7 @@ public static void main( String[] args ){
     Scanner scanner = new Scanner(new File(filename));
     while( scanner.hasNextLine() ){
       tstr = scanner.nextLine();
-      if( tstr.isEmpty() ){
-        continue;
-      }
+      if( tstr.isEmpty() ) continue;    // Skip empty lines
       tchr = tstr.charAt(0);
       switch( tchr ){
         case '#':
@@ -50,23 +48,9 @@ public static void main( String[] args ){
         case '$':
           epdKeyMagicFrom = tstr.substring(1).trim();
           break;
-        case '!':
-          epdKeyMagicIns = tstr.substring(1).trim();
-          break;
-        case '-':
-        case '0':
-        case '1':
-        case '=':
-        case '+':
+        default:
           epdKey.add(tstr.substring(1).trim());
           epdKeyT.add(tchr);
-          break;
-        default:
-          tstr = tstr.trim();
-          if( ! tstr.isEmpty() ){
-            epdKey.add(tstr);
-            epdKeyT.add(' ');
-          }
       }
     }
     epdKeyN = epdKey.size();
@@ -90,121 +74,122 @@ public static void main( String[] args ){
   fileData = new StringBuilder(" " + fileContent.replaceAll("\r\n", "") + "|");
 // Start with the last epdKeyMagicFrom
   startPos = fileData.lastIndexOf(epdKeyMagicFrom);
+// and find every keyword in fileData
+  //noinspection Duplicates
   for( i = 0; i < epdKeyN; i++ ){
-    int pos = fileData.indexOf(epdKey.get(i), startPos);//
+    int pos = fileData.indexOf(epdKey.get(i), startPos);
     if( pos > 0 ){
 // Mark split points with "|" inserted before keywords
       fileData.setCharAt(pos -1, '|');
 // Store epdKey Data Position
-      epdKeyDataPos[i] = pos + epdKey.get(i).length();
+      epdKeyDataPos[i] = pos + epdKey.get(i).length();    // if epdKey found
     }else{
-      epdKeyDataPos[i] = 0;
+      epdKeyDataPos[i] = 0;                               // if epdKey not found
     }
   }
 // Do split by "|"
   String[] records = fileData.substring(startPos).split("\\|");
-  try{
-// Write all records in original order
-    for( i = 0; i < records.length; i++ ){
-      writer.write(i + "." + records[i] + "\r\n");
-    }
-    int maxKeyL = Collections.max(epdKey, Comparator.comparing(String::length)).length();
-    writer.write("\r\n" );
-    // Arrays.sort(records, Comparator.comparingInt(epdKey::indexOf));
-// Write all records in config order
-    for( i = 0; i < epdKeyN; i++ ){
-      int pos = epdKeyDataPos[i];
-      if( pos > 0 ){
-        epdKeyData[i] = fileData.substring(pos, fileData.indexOf("|", pos));
-        // writer.write("\r\n" + i + ". " + epdKey.get(i) + "|" + epdKeyData[i]);
-        writer.write(String.format("%2d. %-"+maxKeyL+"s|%s%n", i, epdKey.get(i), epdKeyData[i]));
-      }
-    }
-// Write all records & fields according to config settings
-    String[] fields;
-    for( i = 0; i < epdKeyN; i++ ){
-      tchr = epdKeyT.get(i);
-      if( tchr == '-' ) continue; // Skip as cfg
-      int pos = epdKeyDataPos[i];
-      if( pos <= 0 ) continue;              // Skip if no data (???)
+  psvLine = new StringBuilder(EPD_VAL_LEN * epdKeyN);
+  // Write all records & fields according to config settings
+  String[] fields;
+  for( i = 0; i < epdKeyN; i++ ){
+    tchr = epdKeyT.get(i);
+    if( tchr == '-' ) continue;           // Skip as cfg
+    int pos = epdKeyDataPos[i];
+    int fl = 0;
+    if( pos > 0 ){
       epdKeyData[i] = fileData.substring(pos-1, fileData.indexOf("|", pos));
-      writer.write(String.format("%n%2d. %-"+maxKeyL+"s|", i, epdKey.get(i)));
-      if( tchr == '0' ) continue; // Skip as cfg
-      if( tchr == '1' ){
-        writer.write(epdKeyData[i].substring(2)+"|");
-        continue;
-      }
       fields = epdKeyData[i].split(" ");
-      int fl = fields.length;
-      switch( tchr ){
-        case '=':
-          for( j = 1; j < fl; j++ ){
-            writer.write(fields[j] + "|");
-          }
-          break;
-        case '+':
-          switch( fl ){
-            case 1:
-              tstr = " |" + " |" + EPD_VAL_ABSENT + "|" + " |" + " |" + EPD_VAL_ABSENT + "|";
-              break;
-            case 2:
-              tstr = " |" + " |" + EPD_VAL_ABSENT + "|" + " |" + " |" + fields[1] + "|";
-              break;
-            case 3:
-              tstr = " |" + " |" + fields[1] + "|" + " |" + " |" + fields[2] + "|";
-              break;
-            case 4:
-              tstr = " |" + " |" + fields[1] + "|" + " |" + fields[2] + "|" + fields[3] + "|";
-              break;
-            case 5:
-              tstr = " |" + " |" + fields[1] + "|" + fields[2] + "|" + fields[3] + "|" + fields[4] + "|";
-              break;
-            case 6:
-            default:
-              tstr = EPD_VAL_EXTRA + "|" + fl + "|" + fields[fl-4] + "|" + fields[fl-3] + "|" + fields[fl-2] + "|" + fields[fl-1] + "|";
-              break;
-          }
-          writer.write(" |" + tstr);
-          break;
-        case ' ':
-        default:
-          switch( fl ){
-            case 1:
-              tstr = EPD_VAL_ABSENT + "|" + EPD_VAL_ABSENT + "|" + EPD_VAL_ABSENT + "|" + EPD_VAL_ABSENT + "|" + " |" + " |" + EPD_VAL_ABSENT + "|";
-              break;
-            case 2:
-              tstr = EPD_VAL_ABSENT + "|" + EPD_VAL_ABSENT + "|" + EPD_VAL_ABSENT + "|" + EPD_VAL_ABSENT + "|" + " |" + " |" + fields[1] + "|";
-              break;
-            case 3:
-              tstr = EPD_VAL_ABSENT + "|" + EPD_VAL_ABSENT + "|" + EPD_VAL_ABSENT + "|" + fields[1] + "|" + " |" + " |" + fields[2] + "|";
-              break;
-            case 4:
-              tstr = EPD_VAL_ABSENT + "|" + EPD_VAL_ABSENT + "|" + EPD_VAL_ABSENT + "|" + fields[1] + "|" + " |" + fields[2] + "|" + fields[3] + "|";
-              break;
-            case 5:
-              tstr = fields[1] + "|" + fields[2] + "|" + EPD_VAL_ABSENT + "|" + fields[3] + "|" + " |" + " |" + fields[4] + "|";
-              break;
-            case 6:
-              tstr = fields[1] + "|" + fields[2] + "|" + fields[3] + "|" + fields[4] + "|" + " |" + " |" + fields[5] + "|";
-              break;
-            case 7:
-              tstr = fields[1] + "|" + fields[2] + "|" + fields[3] + "|" + fields[4] + "|" + " |" + fields[5] + "|" + fields[6] + "|";
-              break;
-            case 8:
-              tstr = fields[1] + "|" + fields[2] + "|" + fields[3] + "|" + fields[4] + "|" + fields[5] + "|" + fields[6] + "|" + fields[7] + "|";
-              break;
-            case 9:
-            default:
-              tstr = fields[fl-7] + "|" + fields[fl-6] + " " + EPD_VAL_EXTRA + "|" + fields[fl-5] + "|" + fields[fl-4] + "|" + fields[fl-3] + "|" + fields[fl-2] + "|" + fields[fl-1] + "|";
-              break;
-          }
-          writer.write(tstr);
-      }
+      fl = fields.length;
     }
-    writer.close();
-  }catch( IOException e ){
-    System.out.println("Cannot write output file `" + filename + "`");
+    switch( tchr ){
+      case '=':
+        if( fl   <= 1 ){
+          if( fl <= 0 ) psvLine.append("-");
+          else          psvLine.append("<");
+          psvLine.append("| |");
+        }else{
+          psvLine.append(" |").append(fields[fl-1]).append("|");
+        }
+        break;
+      case '2':
+        if( fl   <= 5 ){
+          if( fl <= 0 ) psvLine.append("-");
+          else          psvLine.append("<");
+          psvLine.append("| |");
+        }else{
+          if( fl >  6 ) psvLine.append(">");
+          else          psvLine.append(" ");
+          psvLine.append("|").append(fields[fl-1]).append(".").append(fields[fl-3]).append("|");
+        }
+        break;
+      case '+':
+        switch( fl ){
+          case 0:
+            psvLine.append("-| | | | |");
+            break;
+          case 1:
+            psvLine.append("<| | | | |");
+            break;
+          case 2:
+            psvLine.append("<| | | |").append(fields[1]).append("|");
+            break;
+          case 3:
+            psvLine.append(" |").append(fields[1]).append("| | |").append(fields[2]).append("|");
+            break;
+          case 4:
+            psvLine.append(" |").append(fields[1]).append("| |").append(fields[2]).append("|").append(fields[3]).append("|");
+            break;
+          case 5:
+            psvLine.append(" |").append(fields[1]).append("|").append(fields[2]).append("|").append(fields[3]).append("|").append(fields[4]).append("|");
+            break;
+          case 6:
+          default:
+            psvLine.append(">|").append(fields[fl-4]).append("|").append(fields[fl-3]).append("|").append(fields[fl-2]).append("|").append(fields[fl-1]).append("|");
+            break;
+        }
+        break;
+      case '0':
+      case '1':
+      case '3':
+      default:
+        switch( fl ){
+          case 0:
+            psvLine.append("-| | | | | | | |");
+            break;
+          case 1:
+            psvLine.append("<| | | | | | | |");
+            break;
+          case 2:
+            psvLine.append("<| | | | | | |").append(fields[1] + "|");
+            break;
+          case 3:
+            psvLine.append("<| | | |").append(fields[1] + "| | |" + fields[2] + "|");
+            break;
+          case 4:
+            psvLine.append("<| | | |").append(fields[1] + "| |" + fields[2] + "|" + fields[3] + "|");
+            break;
+          case 5:
+            psvLine.append("<| | | |").append(fields[1] + "|" + fields[2] + "|" + fields[3] + "|" + fields[4] + "|");
+            break;
+          case 6:
+            psvLine.append(" |").append(fields[1] + "|" + fields[2] + "|" + fields[3] + "|" + fields[4] + "| | |" + fields[5] + "|");
+            break;
+          case 7:
+            psvLine.append(" |").append(fields[1] + "|" + fields[2] + "|" + fields[3] + "|" + fields[4] + "| |" + fields[5] + "|" + fields[6] + "|");
+            break;
+          case 8:
+            psvLine.append(" |").append(fields[1] + "|" + fields[2] + "|" + fields[3] + "|" + fields[4] + "|" + fields[5] + "|" + fields[6] + "|" + fields[7] + "|");
+            break;
+          case 9:
+          default:
+            psvLine.append(">|").append(fields[fl-7] + "|" + fields[fl-6] + "|" + fields[fl-5] + "|" + fields[fl-4] + "|" + fields[fl-3] + "|" + fields[fl-2] + "|" + fields[fl-1] + "|");
+            break;
+        }
+        psvLine.append(tstr);
+    }
   }
+  writer.close();
   System.out.println(epdKeyMagicFrom);
   System.out.println(epdKeyMagicIns);
   for( i = 0; i < epdKeyN; i++ ){
